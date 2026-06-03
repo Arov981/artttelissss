@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>Artelis Language Tutor</title>
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#58cc71">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: system-ui, -apple-system, sans-serif; background: #1a1a2e; color: white; }
+        .header { background: #16213e; padding: 16px; display: flex; justify-content: space-between; align-items: center; }
+        .stats { display: flex; gap: 20px; }
+        .stat { display: flex; align-items: center; gap: 5px; }
+        .xp { color: #ffd700; }
+        .streak { color: #ff6b6b; }
+        .container { max-width: 800px; margin: 0 auto; padding: 20px; }
+        .section { background: #16213e; border-radius: 16px; margin-bottom: 20px; overflow: hidden; }
+        .section-header { padding: 16px; background: rgba(88,204,113,0.1); }
+        .section-title { font-size: 18px; font-weight: bold; }
+        .units { padding: 16px; }
+        .unit { margin-bottom: 20px; }
+        .unit-title { font-size: 16px; font-weight: 600; margin-bottom: 12px; border-left: 3px solid #58cc71; padding-left: 10px; }
+        .topics { display: flex; flex-wrap: wrap; gap: 10px; }
+        .topic-card { background: rgba(255,255,255,0.05); border-radius: 12px; padding: 12px 16px; cursor: pointer; text-align: center; min-width: 100px; }
+        .topic-card.completed { border-color: #58cc71; background: rgba(88,204,113,0.1); }
+        .topic-card.locked { opacity: 0.5; cursor: not-allowed; }
+        .lesson-panel { background: #16213e; border-radius: 24px; padding: 24px; margin-top: 20px; }
+        .question { font-size: 20px; margin-bottom: 24px; line-height: 1.5; }
+        .options { display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px; }
+        .option { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 14px 20px; cursor: pointer; }
+        .option.selected { background: #58cc71; border-color: #58cc71; }
+        .input-answer { width: 100%; padding: 14px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; color: white; font-size: 16px; margin-bottom: 20px; }
+        .check-btn { background: #58cc71; border: none; color: white; padding: 14px 30px; border-radius: 40px; cursor: pointer; font-weight: 600; width: 100%; }
+        .feedback { margin-top: 20px; padding: 16px; border-radius: 16px; background: rgba(255,255,255,0.05); }
+        .feedback.correct { background: rgba(88,204,113,0.1); border-left: 3px solid #58cc71; }
+        .feedback.incorrect { background: rgba(244,67,54,0.1); border-left: 3px solid #f44336; }
+        .progress-bar { height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden; margin: 20px 0; }
+        .progress-fill { height: 100%; background: #58cc71; width: 0%; transition: width 0.3s; }
+        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+        .modal-content { background: #16213e; border-radius: 24px; padding: 32px; max-width: 500px; width: 90%; text-align: center; }
+        button { background: #58cc71; border: none; color: white; padding: 12px 24px; border-radius: 40px; cursor: pointer; font-weight: 600; margin-top: 16px; }
+        select, input { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); padding: 12px; border-radius: 12px; color: white; margin: 10px 0; width: 100%; }
+        @media (max-width: 768px) {
+            .stats { gap: 10px; }
+            .stat { font-size: 12px; }
+            .topic-card { min-width: 80px; padding: 8px 12px; font-size: 12px; }
+        }
+    </style>
+</head>
+<body>
+<div class="header">
+    <div class="stats"><div class="stat">⭐ <span id="xp">0</span> XP</div><div class="stat">🔥 <span id="streak">0</span> day streak</div><div class="stat">📚 <span id="progress">0</span>%</div></div>
+    <button id="settingsBtn" style="background: none; font-size: 20px;">⚙️</button>
+</div>
+<div class="container" id="mainContainer"><div style="text-align: center; padding: 40px;">Loading...</div></div>
+<div id="onboardingModal" class="modal">
+    <div class="modal-content"><h2>Welcome to Artelis!</h2><p>Choose your language preferences:</p>
+    <select id="targetLang"><option value="en">English</option><option value="es">Spanish</option><option value="fr">French</option><option value="de">German</option><option value="ja">Japanese</option><option value="zh">Chinese</option></select>
+    <select id="nativeLang"><option value="hi">Hindi</option><option value="ta">Tamil</option><option value="te">Telugu</option><option value="bn">Bengali</option><option value="mr">Marathi</option><option value="gu">Gujarati</option></select>
+    <select id="levelSelect"><option value="beginner">Beginner</option><option value="basic">Basic</option><option value="intermediate">Intermediate</option><option value="advanced">Advanced</option></select>
+    <select id="dailyGoal"><option value="5">5 minutes/day</option><option value="10">10 minutes/day</option><option value="15">15 minutes/day</option><option value="20">20 minutes/day</option><option value="30">30 minutes/day</option></select>
+    <button id="startBtn">Start Learning →</button></div>
+</div>
+<script>
+let userId = localStorage.getItem('userId');
+if (!userId) { userId = crypto.randomUUID(); localStorage.setItem('userId', userId); }
+let currentTopic = null, currentQuestions = [], currentIndex = 0, currentXP = 0, currentStreak = 0;
+async function loadUser() {
+    const res = await fetch(`/api/user/${userId}`); const data = await res.json();
+    document.getElementById('xp').innerText = data.xp || 0;
+    document.getElementById('streak').innerText = data.streak || 0;
+    document.getElementById('progress').innerText = data.progress_percent || 0;
+}
+async function loadSections() {
+    const res = await fetch(`/api/user/${userId}/sections`); const data = await res.json();
+    const container = document.getElementById('mainContainer');
+    if (!data.sections || data.sections.length === 0) {
+        container.innerHTML = `<div style="text-align:center;padding:40px"><p>No sections yet. Generate your first section!</p><button onclick="generateFirstSection()">Generate First Section →</button></div>`;
+        return;
+    }
+    let html = '';
+    for (const section of data.sections) {
+        html += `<div class="section"><div class="section-header"><div class="section-title">📘 ${section.title}</div><div class="section-desc" style="font-size:12px;color:#aaa">${section.description || ''}</div></div><div class="units">`;
+        for (const unit of section.units) {
+            html += `<div class="unit"><div class="unit-title">${unit.title}</div><div class="topics">`;
+            for (const topic of unit.topics) {
+                const locked = unit.order_num > 1 && !unit.completed;
+                html += `<div class="topic-card ${topic.completed ? 'completed' : ''} ${locked ? 'locked' : ''}" onclick="${locked ? '' : `startTopic('${topic.id}')`}">${topic.title}<br><small>${topic.completed ? '✓ Completed' : '🔒'}</small></div>`;
+            }
+            html += `</div></div>`;
+        }
+        html += `</div></div>`;
+    }
+    container.innerHTML = html;
+}
+async function generateFirstSection() {
+    document.getElementById('mainContainer').innerHTML = '<div style="text-align:center;padding:40px">Generating your first section... This may take a moment.</div>';
+    const res = await fetch(`/api/user/${userId}/generate_next_section`, { method: 'POST' });
+    const data = await res.json();
+    if (data.success) {
+        await loadSections();
+    } else {
+        document.getElementById('mainContainer').innerHTML = '<div style="text-align:center;padding:40px;color:#f44336">Failed to generate section. Please try again.</div>';
+    }
+}
+async function startTopic(topicId) {
+    currentTopic = topicId;
+    const res = await fetch(`/api/lesson/topic/${topicId}?user_id=${userId}`);
+    const data = await res.json();
+    currentQuestions = data.questions;
+    currentIndex = 0;
+    currentXP = 0;
+    showQuestion();
+}
+function showQuestion() {
+    if (currentIndex >= currentQuestions.length) {
+        completeTopic();
+        return;
+    }
+    const q = currentQuestions[currentIndex];
+    const container = document.getElementById('mainContainer');
+    const progress = (currentIndex / currentQuestions.length) * 100;
+    let html = `<div class="lesson-panel"><div class="progress-bar"><div class="progress-fill" style="width:${progress}%"></div></div><div class="question">${q.content}</div>`;
+    if (q.type === 'multiple_choice' && q.options.length) {
+        html += `<div class="options">`;
+        for (let opt of q.options) {
+            html += `<div class="option" onclick="selectOption('${opt.replace(/'/g, "\\'")}')">${opt}</div>`;
+        }
+        html += `</div>`;
+    } else {
+        html += `<input type="text" class="input-answer" id="textAnswer" placeholder="Type your answer..."><button class="voice-btn" onclick="startVoiceAnswer()" style="background:#ff9800;margin-bottom:10px">🎤 Speak Answer</button>`;
+    }
+    html += `<button class="check-btn" onclick="checkAnswer()">Check Answer</button><div id="feedback"></div></div>`;
+    container.innerHTML = html;
+}
+function selectOption(answer) {
+    document.querySelectorAll('.option').forEach(opt => opt.classList.remove('selected'));
+    event.target.classList.add('selected');
+    window.selectedAnswer = answer;
+}
+async function checkAnswer() {
+    let answer = window.selectedAnswer || document.getElementById('textAnswer')?.value;
+    if (!answer) return;
+    const q = currentQuestions[currentIndex];
+    const res = await fetch('/api/lesson/answer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId, question_id: q.id, answer: answer })
+    });
+    const data = await res.json();
+    const feedbackDiv = document.getElementById('feedback');
+    if (data.correct) {
+        currentXP += data.xp_earned;
+        feedbackDiv.innerHTML = `<div class="feedback correct">✅ Correct! +${data.xp_earned} XP</div>`;
+        currentIndex++;
+        setTimeout(() => showQuestion(), 1500);
+    } else {
+        feedbackDiv.innerHTML = `<div class="feedback incorrect">❌ ${data.explanation || `Correct answer: ${data.correct_answer}`}</div>`;
+    }
+    await loadUser();
+}
+async function completeTopic() {
+    const res = await fetch('/api/lesson/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId, topic_id: currentTopic, score: 100, xp_earned: currentXP })
+    });
+    const data = await res.json();
+    await loadSections();
+    if (data.next_section_generating) {
+        alert('🎉 Section completed! Generating next section...');
+        await generateFirstSection();
+    } else {
+        document.getElementById('mainContainer').innerHTML = '<div style="text-align:center;padding:40px"><p>Lesson complete! +' + currentXP + ' XP</p><button onclick="loadSections()">Continue Learning →</button></div>';
+    }
+    await loadUser();
+}
+function startVoiceAnswer() {
+    if (!('webkitSpeechRecognition' in window)) { alert('Voice not supported'); return; }
+    const recognition = new webkitSpeechRecognition();
+    recognition.lang = 'en-US';
+    recognition.onresult = (e) => {
+        const transcript = e.results[0][0].transcript;
+        document.getElementById('textAnswer').value = transcript;
+        checkAnswer();
+    };
+    recognition.start();
+}
+document.getElementById('startBtn').onclick = async () => {
+    const targetLang = document.getElementById('targetLang').value;
+    const nativeLang = document.getElementById('nativeLang').value;
+    const level = document.getElementById('levelSelect').value;
+    const dailyGoal = document.getElementById('dailyGoal').value;
+    await fetch(`/api/user/${userId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ target_lang: targetLang, native_lang: nativeLang, level: level, daily_goal: dailyGoal }) });
+    document.getElementById('onboardingModal').style.display = 'none';
+    await loadUser();
+    await generateFirstSection();
+};
+document.getElementById('settingsBtn').onclick = () => {
+    document.getElementById('onboardingModal').style.display = 'flex';
+};
+loadUser();
+if (localStorage.getItem('onboarded') !== 'true') {
+    document.getElementById('onboardingModal').style.display = 'flex';
+    localStorage.setItem('onboarded', 'true');
+} else {
+    document.getElementById('onboardingModal').style.display = 'none';
+    loadSections();
+}
+</script>
+</body>
+</html>

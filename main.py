@@ -159,7 +159,11 @@ async def init_db():
             await db.execute("INSERT INTO user_settings (user_id) VALUES (?)", (default_user_id,))
             await db.commit()
 
-# ============ LIFESPAN FOR PYTHON 3.6 ============
+# ============ CREATE FASTAPI APP FIRST ============
+app = FastAPI()
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+
+# ============ LIFESPAN EVENTS (AFTER app IS CREATED) ============
 @app.on_event("startup")
 async def startup_event():
     await init_db()
@@ -167,9 +171,6 @@ async def startup_event():
 @app.on_event("shutdown")
 async def shutdown_event():
     pass
-
-app = FastAPI()
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 # ============ AI CALL ============
 async def call_ai(prompt: str, max_tokens: int = 2000, temperature: float = 0.7) -> str:
